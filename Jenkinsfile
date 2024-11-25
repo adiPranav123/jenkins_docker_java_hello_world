@@ -1,46 +1,56 @@
 pipeline {
     agent any
     environment {
-        DOCKER_IMAGE = 'hello-world-java:latest'  // Docker image name
+        GIT_REPOSITORY_URL = 'https://github.com/adiPranav123/jenkins_docker_java_hello_world.git'
+        DOCKER_IMAGE_NAME = 'blackopsgun/jenkins-python-88'
+        IMAGE_TAG = '1.0'
     }
-
     stages {
-        stage('Checkout') {
+        stage('Clone Repository') {
             steps {
-                // Checkout the source code from the repository
-                checkout scm
+                script {
+                    try {
+                        git branch: 'main', url: GIT_REPOSITORY_URL
+                    } catch (Exception e) {
+                        echo "Failed to clone repository: ${e.message}"
+                        error "Pipeline aborted: Failed to clone repository."
+                    }
+                }
             }
         }
-        stage('Build') {
+        stage('Build Docker Image') {
             steps {
-                // Compile the Java program (assuming HelloWorld.java is in the repository)
-                sh 'javac HelloWorld.java'
+                script {
+                    try {
+                        docker.build("${DOCKER_IMAGE_NAME}:${IMAGE_TAG}")
+                    } catch (Exception e) {
+                        echo "Failed to build Docker image: ${e.message}"
+                        error "Pipeline aborted: Failed to build Docker image."
+                    }
+                }
             }
         }
-        stage('Package') {
+        stage('Push to DockerHub') {
             steps {
-                // Package the compiled class into a JAR file
-                sh 'jar cf HelloWorld.jar HelloWorld.class'
+                script {
+                    try {
+                        withCredentials([usernamePassword(credentialsId: 'adipra', 
+                                                          usernameVariable: 'DOCKER_USERNAME', 
+                                                          passwordVariable: 'DOCKER_PASSWORD')]) {
+                            sh """
+                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                            docker push ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
+                            docker logout
+                            """
+                        }
+                    } catch (Exception e) {
+                        echo "Failed to push Docker image to registry: ${e.message}"
+                        error "Pipeline aborted: Failed to push Docker image."
+                    }
+                }
             }
-        }
-        stage('Docker Build') {
-            steps {
-                // Build the Docker image using the Dockerfile in the repository
-                sh """
-                docker build -t $DOCKER_IMAGE .
-                """
-            }
-        }
-    }
-
-    post {
-        success {
-            // Print a message on successful build
-            echo 'Build completed successfully.'
-        }
-        failure {
-            // Print a message on failed build
-            echo 'Build failed.'
         }
     }
 }
+
+                                                                 
