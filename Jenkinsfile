@@ -1,56 +1,51 @@
 pipeline {
     agent any
     environment {
-        GIT_REPOSITORY_URL = 'https://github.com/adiPranav123/jenkins_docker_java_hello_world.git'
-        DOCKER_IMAGE_NAME = 'blackopsgun/jenkins-python-88'
-        IMAGE_TAG = '1.0'
+        DOCKER_IMAGE = 'blackopsgun/jenkins-python-88:1.0'  // Correct Docker image name
     }
+
     stages {
-        stage('Clone Repository') {
+        stage('Checkout') {
             steps {
-                script {
-                    try {
-                        git branch: 'main', url: GIT_REPOSITORY_URL
-                    } catch (Exception e) {
-                        echo "Failed to clone repository: ${e.message}"
-                        error "Pipeline aborted: Failed to clone repository."
-                    }
-                }
+                checkout scm
             }
         }
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
-                script {
-                    try {
-                        docker.build("${DOCKER_IMAGE_NAME}:${IMAGE_TAG}")
-                    } catch (Exception e) {
-                        echo "Failed to build Docker image: ${e.message}"
-                        error "Pipeline aborted: Failed to build Docker image."
-                    }
-                }
+                sh 'javac HelloWorld.java'
+            }
+        }
+        stage('Package') {
+            steps {
+                sh 'jar cf HelloWorld.jar HelloWorld.class'
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE .'
             }
         }
         stage('Push to DockerHub') {
             steps {
-                script {
-                    try {
-                        withCredentials([usernamePassword(credentialsId: 'adipra', 
-                                                          usernameVariable: 'DOCKER_USERNAME', 
-                                                          passwordVariable: 'DOCKER_PASSWORD')]) {
-                            sh """
-                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                            docker push ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
-                            docker logout
-                            """
-                        }
-                    } catch (Exception e) {
-                        echo "Failed to push Docker image to registry: ${e.message}"
-                        error "Pipeline aborted: Failed to push Docker image."
+                withCredentials([usernamePassword(credentialsId: 'adipra', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    script {
+                        // Log into Docker Hub
+                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+
+                        // Push the Docker image to Docker Hub
+                        sh 'docker push $DOCKER_IMAGE'
                     }
                 }
             }
         }
     }
+    post {
+        success {
+            echo 'Build completed successfully.'
+        }
+        failure {
+            echo 'Build failed.'
+        }
+    }
 }
-
-                                                                 
+                                                
