@@ -15,12 +15,12 @@ pipeline {
 	    }
 	}
 	stage('Package') {
-	    stage {
+	    steps {
 		sh 'jar cf HelloWorld.jar HelloWorld.class'
 	    }
 	}
 	stage('Docker Build') {
-	    stage {
+	    steps {
 		sh """
 		docker build -t $DOCKER_IMAGE .
 		"""
